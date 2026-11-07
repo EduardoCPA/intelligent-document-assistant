@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass
 
 from document_assistant.generation.llm_client import GeminiClient
@@ -6,6 +7,8 @@ from document_assistant.retrieval.retriever import Retriever
 ABSTENTION_MESSAGE = (
     "Não encontrei informações suficientes no documento para responder a essa pergunta."
 )
+
+CITATION_PATTERN = re.compile(r"\[(S\d+)\]")
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,7 +63,7 @@ class AnswerGenerator:
             )
 
         context_parts = []
-        sources = []
+        source_map = {}
 
         for index, chunk in enumerate(chunks, start=1):
             source_id = f"S{index}"
@@ -69,14 +72,11 @@ class AnswerGenerator:
                 f"[{source_id} | Page {chunk.page_number}]\n{chunk.text}"
             )
 
-            citation = SourceCitation(
+            source_map[source_id] = SourceCitation(
                 document_id=chunk.document_id,
                 page_number=chunk.page_number,
                 chunk_index=chunk.chunk_index,
             )
-
-            if citation not in sources:
-                sources.append(citation)
 
         context = "\n\n".join(context_parts)
 
@@ -110,7 +110,28 @@ ANSWER:
 
         answer = self._llm_client.generate(prompt)
 
+        cited_ids = CITATION_PATTERN.findall(answer)
+        valid_ids = set(source_map)
+
+        valid_cited_ids = []
+        for source_id in cited_ids:
+            if source_id in valid_ids and source_id not in valid_cited_ids:
+                valid_cited_ids.append(source_id)
+
+        if not valid_cited_ids:
+            return GeneratedAnswer(
+                answer=ABSTENTION_MESSAGE,
+                sources=(),
+            )
+
+        validated_answer = CITATION_PATTERN.sub(
+            lambda match: match.group(0) if match.group(1) in valid_ids else "",
+            answer,
+        )
+
+        sources = tuple(source_map[source_id] for source_id in valid_cited_ids)
+
         return GeneratedAnswer(
-            answer=answer,
-            sources=tuple(sources),
+            answer=validated_answer,
+            sources=sources,
         )

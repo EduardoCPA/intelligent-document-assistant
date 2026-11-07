@@ -55,13 +55,10 @@ def test_answer_question_returns_generated_answer(answer_generator):
     assert result.answer == ("Python é uma linguagem de programação. [S1]")
 
 
-def test_answer_question_returns_source_citations(answer_generator):
+def test_answer_question_returns_only_cited_sources(answer_generator):
     result = answer_generator.answer_question("O que é Python?")
 
-    assert result.sources == (
-        SourceCitation("document-1", 2, 0),
-        SourceCitation("document-1", 3, 1),
-    )
+    assert result.sources == (SourceCitation("document-1", 2, 0),)
 
 
 def test_answer_question_passes_question_to_retriever(
@@ -181,3 +178,52 @@ def test_answer_question_propagates_generation_errors(
         generator.answer_question("Question")
 
     mock_retriever.retrieve.assert_called_once()
+
+
+def test_answer_question_returns_multiple_cited_sources(
+    answer_generator,
+    mock_llm,
+):
+    mock_llm.generate.return_value = "Python é uma linguagem. [S1] [S2]"
+
+    result = answer_generator.answer_question("O que é Python?")
+
+    assert result.sources == (
+        SourceCitation("document-1", 2, 0),
+        SourceCitation("document-1", 3, 1),
+    )
+
+
+def test_answer_question_ignores_invalid_citations(
+    answer_generator,
+    mock_llm,
+):
+    mock_llm.generate.return_value = "Python é uma linguagem. [S1] [S99]"
+
+    result = answer_generator.answer_question("O que é Python?")
+
+    assert result.sources == (SourceCitation("document-1", 2, 0),)
+    assert "[S99]" not in result.answer
+
+
+def test_answer_question_removes_duplicate_source_citations(
+    answer_generator,
+    mock_llm,
+):
+    mock_llm.generate.return_value = "Python é uma linguagem. [S1] [S1]"
+
+    result = answer_generator.answer_question("O que é Python?")
+
+    assert result.sources == (SourceCitation("document-1", 2, 0),)
+
+
+def test_answer_question_abstains_without_valid_citations(
+    answer_generator,
+    mock_llm,
+):
+    mock_llm.generate.return_value = "Python é uma linguagem, mas sem referências."
+
+    result = answer_generator.answer_question("O que é Python?")
+
+    assert result.answer == ABSTENTION_MESSAGE
+    assert result.sources == ()
