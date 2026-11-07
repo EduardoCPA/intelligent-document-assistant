@@ -15,18 +15,18 @@ class FakeModel:
         return (np.array([0.1, 0.2, 0.3], dtype=np.float32) for _ in texts)
 
 
-def test_embed_documents_adds_passage_prefix():
+def test_embed_documents_does_not_add_prefix():
     model = FakeModel()
     embedder = FastEmbedder(model=model)
     embedder.embed_documents(["My document"])
-    assert model.received_texts[0] == ["passage: My document"]
+    assert model.received_texts[0] == ["My document"]
 
 
-def test_embed_query_adds_query_prefix():
+def test_embed_query_does_not_add_prefix():
     model = FakeModel()
     embedder = FastEmbedder(model=model)
     embedder.embed_query("What is AI?")
-    assert model.received_texts[0] == ["query: What is AI?"]
+    assert model.received_texts[0] == ["What is AI?"]
 
 
 def test_embeddings_are_converted_to_python_lists():

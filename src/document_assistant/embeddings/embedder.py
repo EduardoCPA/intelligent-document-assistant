@@ -3,7 +3,7 @@ from typing import Any
 
 from fastembed import TextEmbedding
 
-DEFAULT_MODEL_NAME = "intfloat/multilingual-e5-small"
+DEFAULT_MODEL_NAME = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 
 
 class FastEmbedder:
@@ -31,7 +31,7 @@ class FastEmbedder:
             if not text.strip():
                 raise ValueError(f"Document text at index {index} cannot be blank.")
 
-        prefixed_texts = [f"passage: {text.strip()}" for text in texts]
+        prefixed_texts = [text.strip() for text in texts]
         vectors = list(self._model.embed(prefixed_texts))
 
         if len(vectors) != len(texts):
@@ -47,7 +47,7 @@ class FastEmbedder:
         if not query.strip():
             raise ValueError("Query cannot be blank.")
 
-        vectors = list(self._model.embed([f"query: {query.strip()}"]))
+        vectors = list(self._model.embed([query.strip()]))
 
         if len(vectors) != 1:
             raise RuntimeError("Expected exactly one embedding for the query.")
